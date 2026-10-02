@@ -1,0 +1,276 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Marvel Web — knowledge graph</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:#07070d;color:#e8e8f0;font:14px/1.45 Georgia,'Times New Roman',serif;overflow:hidden}
+body{background:radial-gradient(ellipse at 30% 20%,#1a1030 0,#07070d 60%)}
+canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:grab}
+#top{position:absolute;top:0;left:0;right:0;display:flex;gap:10px;align-items:center;padding:12px 14px;z-index:5;pointer-events:none}
+#top>*{pointer-events:auto}
+h1{font-size:19px;margin:0;font-weight:400;letter-spacing:.04em;white-space:nowrap}h1 b{color:#e23636}
+#sw{position:relative;flex:1;max-width:420px}
+input,select,button{font:inherit;color:#e8e8f0;background:#14141f;border:1px solid #2b2b40;border-radius:6px;padding:7px 10px;outline:none}
+input{width:100%}input:focus,select:focus,button:focus-visible{border-color:#7b61ff}
+button{cursor:pointer}button:hover{background:#1e1e30}
+#res{position:absolute;top:38px;left:0;right:0;background:#101019;border:1px solid #2b2b40;border-radius:6px;display:none;max-height:60vh;overflow:auto}
+#res div{padding:7px 10px;cursor:pointer;display:flex;justify-content:space-between;gap:8px}#res div:hover,#res .on{background:#1e1e30}#res small{color:#889}
+#flt{position:absolute;left:14px;bottom:14px;right:14px;display:flex;flex-wrap:wrap;gap:6px;z-index:4;pointer-events:none;max-width:700px}
+#flt button{pointer-events:auto;font-size:12px;padding:4px 9px;border-radius:99px}#flt button.off{opacity:.35;text-decoration:line-through}
+#tip{position:absolute;pointer-events:none;background:#101019ee;border:1px solid #2b2b40;border-radius:6px;padding:6px 9px;font-size:12px;display:none;z-index:6;max-width:240px}
+#P{position:absolute;top:0;right:0;bottom:0;width:380px;background:#0d0d16f2;border-left:1px solid #2b2b40;padding:64px 18px 24px;overflow:auto;transform:translateX(100%);transition:transform .3s;z-index:4}
+#P.o{transform:none}#P h2{margin:6px 0 2px;font-size:22px;font-weight:400}#P h3{margin:18px 0 6px;font-size:13px;color:#aab;font-weight:400;border-bottom:1px solid #22223a;padding-bottom:3px}
+#P p{margin:6px 0}.pill{display:inline-block;border-radius:99px;padding:1px 9px;font-size:12px;border:1px solid;margin-right:5px}
+.it{display:flex;gap:6px;align-items:baseline;padding:3px 0}.it a{color:#9cf;cursor:pointer}.it a:hover{text-decoration:underline}.it i{cursor:pointer;font-style:normal;color:#889;margin-left:auto}.it span{color:#889;font-size:12px}
+.x{position:absolute;top:60px;right:14px;padding:2px 8px}#reset{margin-left:auto}
+.gate{border:1px dashed #6a4040;background:#1a0f12;padding:8px;border-radius:6px;color:#f99;cursor:pointer;margin:8px 0}
+@media(max-width:700px){#P{top:auto;width:auto;left:0;right:0;height:50vh;border-left:0;border-top:1px solid #2b2b40;transform:translateY(100%);padding-top:36px}#P.o{transform:none}.x{top:6px}h1{display:none}#flt{bottom:calc(50vh + 8px)}}
+</style></head><body>
+<canvas id="c"></canvas>
+<div id="top"><h1>MARVEL <b>WEB</b></h1><div id="sw"><input id="q" placeholder="Search anything: spi, tobey, mjolnir, on your left…" autocomplete="off"><div id="res"></div></div>
+<select id="sp" title="Spoiler level"><option value="0">Spoilers: none</option><option value="1" selected>Mild</option><option value="2">Major</option><option value="3">Everything</option></select><button id="reset">Show everything</button></div>
+<div id="flt"></div><div id="tip"></div>
+<aside id="P"></aside>
+<script>
+const U={mcu:['MCU','#e23636'],tv:['Marvel TV / Netflix','#c9a24c'],raimi:['Raimi Spider-Man','#f28c28'],asm:['Amazing Spider-Man','#3fa9f5'],ssu:['Sony Spider-Man Universe','#a45de0'],sv:['Spider-Verse','#ff5fa8'],fox:['Fox X-Men / FF','#2ec4b6'],x:['Cross-universe','#ccc']};
+const T={p:'Project',c:'Character',a:'Actor',o:'Object',e:'Easter egg',d:'Dialogue',v:'Event'};
+const TC={c:'#fff',a:'#c9c9d6',o:'#ffd166',e:'#8fd3ff',d:'#8dfaa8',v:'#ffa6d9'};
+const ET={char:['Character connection','👤',[],'#8aa0b0'],actor:['Actor connection','🎭',[2,3],'#c9a0c0'],cameo:['Cameo','📷',[6,3],'#ffcc44'],crossover:['Crossover','🔗',[],'#ff5555'],cont:['Story continuation','➡',[],'#66ccff'],dialogue:['Dialogue callback','💬',[4,2],'#66ff99'],egg:['Easter egg','🥚',[1,3],'#ffaa66'],object:['Object connection','◆',[8,3],'#eecc66'],alt:['Alternate reality','🌀',[5,4],'#bb88ff'],same:['Same universe','◎',[],'#7799aa'],ref:['Reference','📎',[2,4],'#99aabb'],bts:['Behind the scenes','🎬',[3,3],'#77ccdd']};
+const PV={c:['Confirmed','#4ade80'],t:['Production trivia','#60a5fa'],m:['Community discovery','#a78bfa'],f:['Fan theory','#fb923c'],r:['Reported','#facc15'],d:['Disputed','#f87171']};
+// ---------- DATA (edit here) ----------  id|type|label|universe|year|r=released/u=upcoming|description
+const N=`ironman|p|Iron Man|mcu|2008|r|Billionaire Tony Stark builds a powered suit after captivity. Where the MCU begins.
+thor|p|Thor|mcu|2011|r|An arrogant Asgardian prince is exiled to Earth.
+ca1|p|Captain America: The First Avenger|mcu|2011|r|A frail WWII volunteer becomes a super-soldier.
+avengers|p|The Avengers|mcu|2012|r|Earth's heroes unite against an alien invasion.
+tws|p|Captain America: The Winter Soldier|mcu|2014|r|Steve Rogers uncovers a conspiracy inside S.H.I.E.L.D.
+aou|p|Avengers: Age of Ultron|mcu|2015|r|The team faces a rogue AI of their own making.
+homecoming|p|Spider-Man: Homecoming|mcu|2017|r|Peter Parker balances high school and heroics.
+infwar|p|Avengers: Infinity War|mcu|2018|r|Thanos hunts the Infinity Stones.
+endgame|p|Avengers: Endgame|mcu|2019|r|Survivors try to undo the damage. Closes the Infinity Saga.
+loki|p|Loki|mcu|2021|r|A Loki variant is recruited by the Time Variance Authority.
+wandav|p|WandaVision|mcu|2021|r|Wanda and Vision live inside a strange sitcom reality.
+whatif|p|What If...?|mcu|2021|r|Animated anthology of alternate MCU realities.
+nwh|p|Spider-Man: No Way Home|mcu|2021|r|A spell gone wrong tears open the multiverse.
+dsmom|p|Doctor Strange in the Multiverse of Madness|mcu|2022|r|Strange meets America Chavez and faces multiversal threats.
+dpw|p|Deadpool & Wolverine|mcu|2024|r|First Fox-era characters enter the MCU via the TVA.
+bornagain|p|Daredevil: Born Again|mcu|2025|r|Matt Murdock and Wilson Fisk clash again; Netflix-era characters return.
+ff|p|The Fantastic Four: First Steps|mcu|2025|r|Marvel's First Family in a retro-futuristic 1960s-style world.
+doomsday|p|Avengers: Doomsday|mcu|2026|u|Announced MCU team-up. Official info is limited; check release date.
+sw|p|Avengers: Secret Wars|mcu|2027|u|Announced follow-up film. Plot undisclosed.
+dd|p|Daredevil (Netflix)|tv|2015|r|A blind lawyer fights crime in Hell's Kitchen.
+defenders|p|The Defenders|tv|2017|r|Netflix street-level heroes team up.
+shield|p|Agents of S.H.I.E.L.D.|tv|2013|r|ABC series; its place in MCU canon is contested.
+agentcarter|p|Agent Carter|tv|2015|r|Peggy Carter works for the SSR after WWII.
+sm1|p|Spider-Man (2002)|raimi|2002|r|Sam Raimi's origin film starring Tobey Maguire.
+sm2|p|Spider-Man 2|raimi|2004|r|Peter faces Doctor Octopus.
+sm3|p|Spider-Man 3|raimi|2007|r|Sandman, Venom and a darker Peter.
+asm1|p|The Amazing Spider-Man|asm|2012|r|Andrew Garfield's Peter meets the Lizard.
+asm2|p|The Amazing Spider-Man 2|asm|2014|r|Electro and the Green Goblin.
+venom|p|Venom|ssu|2018|r|Eddie Brock bonds with an alien symbiote.
+venom2|p|Venom: Let There Be Carnage|ssu|2021|r|Venom vs. Carnage. Mid-credits leads to No Way Home.
+morbius|p|Morbius|ssu|2022|r|A doctor becomes a living vampire.
+kraven|p|Kraven the Hunter|ssu|2024|r|A hunter with animal powers.
+itsv|p|Spider-Man: Into the Spider-Verse|sv|2018|r|Miles Morales meets other Spider-people. Animated.
+atsv|p|Spider-Man: Across the Spider-Verse|sv|2023|r|Miles crosses the multiverse. Animated.
+btsv|p|Beyond the Spider-Verse|sv|2027|u|Announced conclusion to the trilogy.
+xmen|p|X-Men|fox|2000|r|Mutants split between Xavier and Magneto.
+x2|p|X2|fox|2003|r|The X-Men face Stryker.
+xfc|p|X-Men: First Class|fox|2011|r|Prequel: young Xavier and Magnus.
+dofp|p|X-Men: Days of Future Past|fox|2014|r|Wolverine travels back to rewrite the timeline.
+logan|p|Logan|fox|2017|r|An aging Wolverine's final story.
+dp|p|Deadpool|fox|2016|r|Wade Wilson's irreverent origin.
+dp2|p|Deadpool 2|fox|2018|r|Deadpool forms X-Force.
+ff05|p|Fantastic Four (2005)|fox|2005|r|Separate continuity from the MCU's 2025 film.
+spidey|c|Spider-Man (Peter Parker)|x|||Many actors, several continuities.
+tony|c|Tony Stark / Iron Man|mcu|||
+steve|c|Steve Rogers / Captain America|mcu|||
+lokic|c|Loki|mcu|||
+strange|c|Doctor Strange|mcu|||
+thanos|c|Thanos|mcu|||
+wanda|c|Wanda Maximoff|mcu|||
+deadpool|c|Deadpool|x|||Fox and MCU versions of Wade Wilson.
+wolverine|c|Wolverine|x|||Fox's Logan and an MCU-era variant.
+docock|c|Doctor Octopus|raimi|||
+kingpin|c|Kingpin|x|||Wilson Fisk, Netflix and MCU.
+daredevil|c|Daredevil|x|||Matt Murdock.
+venomc|c|Venom|x|||
+miles|c|Miles Morales|sv|||
+holland|a|Tom Holland|x|||
+tobey|a|Tobey Maguire|x|||
+garfield|a|Andrew Garfield|x|||
+rdj|a|Robert Downey Jr.|x|||
+evans|a|Chris Evans|x|||
+jackman|a|Hugh Jackman|x|||
+reynolds|a|Ryan Reynolds|x|||
+cox|a|Charlie Cox|x|||
+dondrio|a|Vincent D'Onofrio|x|||
+molina|a|Alfred Molina|x|||
+hiddleston|a|Tom Hiddleston|x|||
+mjolnir|o|Mjolnir|x|||Thor's hammer; only the worthy can lift it.
+stones|o|Infinity Stones|x|||Six gems that govern fundamental aspects of reality.
+shield|o|Captain America's Shield|x|||
+tesseract|o|Tesseract|x|||Cosmic cube housing the Space Stone.
+arc|o|Arc Reactor|x|||
+d1|d|"I am Iron Man"|x|||Tony's signature line.
+d2|d|"On your left"|x|||Steve and Sam's running gag.
+d3|d|"With great power…"|x|||Spider-Man's moral motto.
+stan|e|Stan Lee cameos|x|||The Marvel co-creator appears in many productions.
+vault|e|Infinity Gauntlet in Odin's vault|mcu|||A glimpse of the Gauntlet years before it mattered.
+nyc|v|Battle of New York|mcu|||
+snap|v|The Snap / the Blip|mcu|||
+multiverse|v|The Multiverse|x|||`;
+const X=`nwh|sm1|crossover|Green Goblin and Tobey's Peter|The multiverse spell pulls Norman Osborn's Goblin and Tobey Maguire's Peter in from Raimi's universe.|c|3
+nwh|sm2|crossover|Doc Ock returns|Alfred Molina reprises Otto Octavius from Spider-Man 2.|c|3
+nwh|sm3|crossover|Sandman returns|Flint Marko arrives from Raimi's third film.|c|3
+nwh|asm1|crossover|The Lizard returns|Curt Connors arrives from The Amazing Spider-Man.|c|3
+nwh|asm2|crossover|Electro returns|Jamie Foxx reprises Electro from The Amazing Spider-Man 2.|c|3
+homecoming|nwh|cont|Peter's arc|Tom Holland's Peter continues from Homecoming into No Way Home.|c|1
+nwh|dsmom|cont|Spell consequences|The spell's multiversal fallout is Strange's problem in his next film.|c|2
+dsmom|wandav|cont|Wanda's story|Wanda's WandaVision arc drives the plot of Doctor Strange 2.|c|3
+ca1|avengers|cont|Tesseract|The Tesseract found in Cap's film is what Loki uses in The Avengers.|c|1
+ironman|avengers|cont|The initiative|Tony's story feeds into the team-up.|c|0
+thor|avengers|cont|Loki's story|Thor and Loki's conflict carries directly into The Avengers.|c|0
+avengers|aou|cont|Aftermath|The team reacts to the Battle of New York and Loki's scepter.|c|0
+aou|infwar|cont|Setup for Thanos|Age of Ultron sets up the Stones plot that pays off in Infinity War.|c|1
+infwar|endgame|cont|Direct sequel|Endgame picks up after the Snap.|c|3
+endgame|loki|cont|A 2012 Loki escapes|In Endgame a past Loki grabs the Tesseract and vanishes; the series follows that variant.|c|3
+ironman|endgame|dialogue|"I am Iron Man" callback|Tony's closing line in Iron Man (2008) is echoed at his final stand in Endgame, a deliberate bookend of his arc.|c|3
+tws|endgame|dialogue|"On your left" callback|The Steve-and-Sam gag from The Winter Soldier is repeated in Endgame's final battle.|c|3
+dd|defenders|cont|Team-up|Daredevil leads into The Defenders.|c|0
+dd|bornagain|cont|Netflix characters return|Cox and D'Onofrio return; how much Netflix history is canon is handled loosely.|d|1
+shield|tws|ref|Hydra fallout|The show reacts to the Hydra reveal from The Winter Soldier.|c|2
+shield|avengers|ref|Disputed canon|Marvel has treated the ABC show's MCU status inconsistently.|d|0
+agentcarter|ca1|cont|Peggy Carter|Follows Peggy after the events of the first Cap film.|c|0
+daredevil|nwh|cameo|Matt Murdock cameo|Charlie Cox appears as Matt Murdock, Peter's lawyer, in the MCU.|c|3
+cox|nwh|cameo|Cox returns as Murdock|Charlie Cox's Murdock cameo bridges Netflix-era and MCU continuity.|c|3
+dpw|dp|cont|Fox sequel feel|Reynolds' Wade Wilson from the Fox films enters the MCU.|c|1
+dpw|dp2|cont|Fox sequel feel|Builds on Deadpool 2's characters and humor.|c|1
+dpw|logan|ref|Logan's death|This Wolverine is a variant; Logan's death in Logan is a running joke and wound.|c|3
+dpw|loki|cont|The TVA|The TVA introduced in Loki is central to Deadpool & Wolverine.|c|2
+jackman|dpw|bts|Yellow suit|Jackman wears the comics-accurate yellow costume for the first time.|t|1
+xmen|x2|cont|Sequel|X2 continues directly.|c|0
+xmen|dofp|cont|Timeline reset|Days of Future Past rewrites the timeline of the Fox films.|c|3
+xfc|dofp|cont|Younger cast|The First Class cast returns for the time-travel story.|c|1
+xfc|xmen|cont|Prequel|First Class is set before X-Men chronologically.|c|1
+dofp|logan|cont|Timeline unclear|Logan's relation to the altered timeline is debated.|d|3
+dp|xmen|ref|Fox X-Men world|Deadpool shares a world with the X-Men films.|c|1
+dp|dp2|cont|Sequel|Direct sequel.|c|0
+ff05|ff|alt|Separate continuities|The 2005 film and the 2025 MCU film are unrelated continuities.|c|0
+venom|venom2|cont|Sequel|Direct sequel.|c|0
+venom2|nwh|crossover|Mid-credits jump|Eddie and Venom are briefly pulled into the MCU, then return.|c|3
+morbius|nwh|crossover|Multiverse tease|Morbius's credits scene shows a Vulture pulled across universes.|c|3
+morbius|venom|same|Shared Sony world|Treated as one Sony world, but Sony's own framing is loose.|d|2
+kraven|morbius|same|Shared Sony world|Part of the Sony Spider-Man universe by studio branding.|d|1
+venomc|sm3|char|Different Venom|Raimi's Venom is a separate version from the Sony-era one.|c|1
+sm3|venomc|char|Different Venom|Raimi's Venom is a separate version from the Sony-era one.|c|1
+spidey|miles|char|Passing the mantle|Miles takes up the Spider-Man role in his own universe.|c|1
+itsv|atsv|cont|Sequel|Direct sequel.|c|0
+atsv|btsv|cont|Cliffhanger|Beyond continues the Across story.|c|2
+btsv|nwh|ref|Live-action speculation|Fans speculate about live-action Spider-Men; no official statement.|f|0
+whatif|ca1|alt|Captain Carter|The first episode imagines Peggy Carter taking the serum.|c|1
+rdj|doomsday|actor|Doctor Doom casting|Marvel announced Robert Downey Jr. as Victor von Doom at San Diego Comic-Con 2024.|c|1
+doomsday|sw|cont|Two-part finale|Announced as leading into Secret Wars; details undisclosed.|r|1
+doomsday|ff|cont|Family returns|Reported link; not officially detailed.|r|1
+d1|ironman|dialogue|Origin of the line|Tony says it to end Iron Man (2008).|c|0
+d1|endgame|dialogue|Callback|The line returns at Tony's final stand.|c|3
+d2|tws|dialogue|Origin of the line|A jogging gag between Steve and Sam.|c|0
+d2|endgame|dialogue|Callback|The line returns in the last battle.|c|3
+d3|sm1|dialogue|Origin of the line|Uncle Ben's guidance in the 2002 film.|c|0
+d3|nwh|dialogue|Callback|Aunt May echoes the idea in No Way Home.|c|3
+mjolnir|thor|object|Introduced|Mjolnir's introduction.|c|0
+mjolnir|aou|object|Worthy gag|Heroes try to lift the hammer at a party.|c|1
+mjolnir|endgame|object|Steve wields it|Steve proves worthy during the final battle.|c|3
+tesseract|ca1|object|Hydra's power source|The Tesseract powers Hydra's weapons.|c|0
+tesseract|avengers|object|Loki's tool|Loki uses it to open a portal.|c|1
+tesseract|endgame|object|Time heist|Retrieved in the time travel plot.|c|2
+tesseract|stones|object|Space Stone|The Tesseract houses the Space Stone.|c|0
+stones|infwar|object|The hunt|Thanos hunts all six Stones.|c|1
+stones|endgame|object|Reversal|The Stones are central to undoing the Snap.|c|3
+shield|ca1|object|Origin|Cap's shield is built and first carried.|c|0
+shield|tws|object|Signature weapon|Used throughout the film.|c|0
+shield|endgame|object|Passed on|Steve passes the shield to Sam.|c|3
+arc|ironman|object|Power source|Tony's arc reactor is the film's key device.|c|0
+arc|avengers|object|Stark Tower|It powers Stark Tower.|c|1
+arc|endgame|object|Final arc reactor|Tony's closing moments tie back to the arc reactor.|c|3
+vault|thor|egg|Gauntlet in the vault|A Gauntlet appears in Odin's vault in Thor.|c|0
+vault|stones|egg|Early Gauntlet tease|Previews the Infinity Gauntlet in the first Thor film.|c|0
+jackman|logan|bts|Wolverine farewell|Jackman's last outing in the Fox films.|t|0`;
+const G=[['char',0,'c','spidey:homecoming,nwh,sm1,sm2,sm3,asm1,asm2;tony:ironman,avengers,aou,infwar,endgame,homecoming;steve:ca1,avengers,tws,aou,infwar,endgame;lokic:thor,avengers,infwar,loki;strange:dsmom,nwh,infwar;thanos:avengers,infwar,endgame;wanda:wandav,aou,infwar,endgame,dsmom;deadpool:dp,dp2,dpw;wolverine:xmen,x2,dofp,logan,dpw;docock:sm2,nwh;kingpin:dd,bornagain;daredevil:dd,defenders,bornagain;venomc:venom,venom2;miles:itsv,atsv,btsv'],
+['actor',0,'c','holland:spidey,homecoming,nwh;tobey:spidey,sm1,sm2,sm3,nwh;garfield:spidey,asm1,asm2,nwh;rdj:tony,ironman,avengers,endgame;evans:steve,ca1,avengers,tws,endgame;jackman:wolverine,xmen,logan,dpw;reynolds:deadpool,dp,dp2,dpw;cox:daredevil,dd,bornagain;dondrio:kingpin,dd,bornagain;molina:docock,sm2,nwh;hiddleston:lokic,thor,avengers,loki'],
+['egg',1,'c','stan:ironman,avengers,sm1,xmen,endgame'],
+['ref',1,'c','nyc:avengers,shield,endgame;snap:infwar,endgame,wandav;multiverse:loki,nwh,dsmom,whatif,dpw,sw']];
+// ---------- ENGINE ----------
+const B={},nodes=[],E=[];
+N.split('\n').forEach(l=>{const[id,t,label,u,yr,s,d]=l.split('|');const n={id,t,label,u,yr,up:s==='u',d:d||'',deg:0,x:0,y:0,vx:0,vy:0};B[id]=n;nodes.push(n)});
+X.split('\n').forEach(l=>{const[a,b,t,ti,tx,pv,sp]=l.split('|');E.push({a,b,t,ti,tx,pv,sp:+sp})});
+G.forEach(([t,sp,pv,s])=>s.split(';').forEach(g=>{const[a,l]=g.split(':');l.split(',').forEach(b=>E.push({a,b,t,ti:ET[t][0],tx:B[a].label+' ↔ '+B[b].label+'.',pv,sp}))}));
+const adj={};nodes.forEach(n=>adj[n.id]=[]);E.forEach((e,i)=>{e.i=i;B[e.a].deg++;B[e.b].deg++;adj[e.a].push(e);adj[e.b].push(e)});
+const ukeys=Object.keys(U).filter(k=>k!=='x'),CC={x:[0,0]};ukeys.forEach((k,i)=>{const a=i/ukeys.length*6.283-1.57;CC[k]=[Math.cos(a)*(k==='mcu'?150:430),Math.sin(a)*(k==='mcu'?150:430)*.85]});
+CC.mcu=[0,0];ukeys.filter(k=>k!=='mcu').forEach((k,i,ar)=>{const a=i/ar.length*6.283-1.57;CC[k]=[Math.cos(a)*440,Math.sin(a)*380]});
+nodes.forEach(n=>{const c=CC[n.u];n.x=c[0]+(Math.random()-.5)*200;n.y=c[1]+(Math.random()-.5)*200});
+function tick(a){for(let i=0;i<nodes.length;i++){const p=nodes[i];for(let j=i+1;j<nodes.length;j++){const q=nodes[j];let dx=p.x-q.x,dy=p.y-q.y,d2=dx*dx+dy*dy+1,f=2200/d2*a;if(d2>90000)continue;const d=Math.sqrt(d2);dx=dx/d*f*d*.1;dy=dy/d*f*d*.1;p.vx+=dx;p.vy+=dy;q.vx-=dx;q.vy-=dy}}
+E.forEach(e=>{const p=B[e.a],q=B[e.b];const dx=q.x-p.x,dy=q.y-p.y,d=Math.hypot(dx,dy)+.1,f=(d-85)*.02*a/ .3,fx=dx/d*f,fy=dy/d*f;p.vx+=fx;p.vy+=fy;q.vx-=fx;q.vy-=fy});
+nodes.forEach(n=>{const c=CC[n.u],g=n.u==='x'?.012:.03;n.vx+=(c[0]-n.x)*g*a;n.vy+=(c[1]-n.y)*g*a;n.vx*=.8;n.vy*=.8;n.x+=n.vx;n.y+=n.vy})}
+for(let i=0;i<300;i++)tick(.5);
+let alpha=.2;
+// view
+const cv=document.getElementById('c'),ctx=cv.getContext('2d'),$=s=>document.querySelector(s);
+let W,H,dpr,tx=0,ty=0,k=1,sel=null,selE=null,hov=null,hovE=null,hT=new Set(),hU=new Set(),L=1,rev=new Set();
+function size(){dpr=devicePixelRatio||1;W=innerWidth;H=innerHeight;cv.width=W*dpr;cv.height=H*dpr}
+const vis=n=>!hT.has(n.t)&&!(n.u!=='x'&&hU.has(n.u));
+const evis=e=>vis(B[e.a])&&vis(B[e.b]);
+const rad=n=>(n.t==='p'?6:n.t==='c'||n.t==='v'?5:3.6)+Math.sqrt(n.deg)*.8;
+const col=n=>n.t==='p'?U[n.u][1]:TC[n.t];
+function foc(){if(sel){const s=new Set([sel]);adj[sel].forEach(e=>{s.add(e.a);s.add(e.b)});return s}if(selE)return new Set([selE.a,selE.b]);return null}
+function draw(){ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);ctx.save();ctx.translate(tx,ty);ctx.scale(k,k);const F=foc();
+ctx.font='600 26px Georgia';ctx.textAlign='center';ukeys.forEach(u=>{if(hU.has(u))return;ctx.fillStyle=U[u][1]+(F?'14':'30');ctx.fillText(U[u][0].toUpperCase(),CC[u][0],CC[u][1]-(u==='mcu'?170:150))});
+E.forEach(e=>{if(!evis(e))return;const p=B[e.a],q=B[e.b],hi=!F||(sel?(e.a===sel||e.b===sel):e===selE);const h=e===hovE;ctx.globalAlpha=hi?(F?.95:.38):.04;ctx.strokeStyle=ET[e.t][3];ctx.lineWidth=(h||e===selE?3:hi&&F?1.6:.7)/k;ctx.setLineDash(ET[e.t][2].map(v=>v/k));ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.stroke()});
+ctx.setLineDash([]);if(F&&k>.5){ctx.font=`${13/k}px sans-serif`;E.forEach(e=>{if(!evis(e)||!(sel?(e.a===sel||e.b===sel):e===selE))return;ctx.globalAlpha=1;ctx.fillText(ET[e.t][1],(B[e.a].x+B[e.b].x)/2,(B[e.a].y+B[e.b].y)/2+4/k)})}
+nodes.forEach(n=>{if(!vis(n))return;const r=rad(n),inF=!F||F.has(n.id);ctx.globalAlpha=inF?1:.08;ctx.beginPath();ctx.arc(n.x,n.y,r,0,6.283);ctx.fillStyle=col(n);ctx.shadowColor=col(n);ctx.shadowBlur=(n.id===sel?20:n.t==='p'?6:0);ctx.fill();ctx.shadowBlur=0;
+if(n.up){ctx.setLineDash([3/k,2/k]);ctx.strokeStyle='#fff';ctx.lineWidth=1.2/k;ctx.beginPath();ctx.arc(n.x,n.y,r+3,0,6.283);ctx.stroke();ctx.setLineDash([])}
+if(n.id===sel||n.id===hov){ctx.strokeStyle='#fff';ctx.lineWidth=1.5/k;ctx.beginPath();ctx.arc(n.x,n.y,r+4,0,6.283);ctx.stroke()}
+if(inF&&(F||k>1.1||n.deg>=7||(k>.7&&n.t==='p'&&n.deg>=4))){ctx.fillStyle=inF&&F?'#fff':'#c9c9dd';ctx.font=`${(n.id===sel?13:11)/Math.min(k,1.6)*(k<1?1:1)}px Georgia`;ctx.globalAlpha=.92;ctx.fillText(n.label,n.x,n.y+r+13/Math.min(k,1.6))}});
+ctx.restore();ctx.globalAlpha=1}
+let busy=false;function loop(){if(alpha>.01){tick(alpha);alpha*=.985}draw();requestAnimationFrame(loop)}
+function go(nx,ny,nk){const s={tx,ty,k},cx=(W>700&&$('#P').classList.contains('o'))?(W-380)/2:W/2,cy=(W<=700&&$('#P').classList.contains('o'))?H*.25:H/2,t0=performance.now(),T=nk,ttx=cx-nx*T,tty=cy-ny*T;
+(function f(now){const p=Math.min(1,(now-t0)/500),e=1-Math.pow(1-p,3);tx=s.tx+(ttx-s.tx)*e;ty=s.ty+(tty-s.ty)*e;k=s.k+(T-s.k)*e;if(p<1)requestAnimationFrame(f)})(t0)}
+function fit(){const v=nodes.filter(vis);if(!v.length)return;let a=1e9,b=1e9,c=-1e9,d=-1e9;v.forEach(n=>{a=Math.min(a,n.x);b=Math.min(b,n.y);c=Math.max(c,n.x);d=Math.max(d,n.y)});go((a+c)/2,(b+d)/2,Math.min((W-80)/(c-a+120),(H-140)/(d-b+120)))}
+// picking
+const w2=(x,y)=>[(x-tx)/k,(y-ty)/k];
+function pick(x,y){const[wx,wy]=w2(x,y);let best=null,bd=1e9;nodes.forEach(n=>{if(!vis(n))return;const d=Math.hypot(n.x-wx,n.y-wy);if(d<rad(n)+5/k&&d<bd){bd=d;best=n}});if(best)return{n:best};
+let be=null;bd=7/k;const F=foc();E.forEach(e=>{if(!evis(e))return;if(F&&!(sel?(e.a===sel||e.b===sel):e===selE))return;const p=B[e.a],q=B[e.b],dx=q.x-p.x,dy=q.y-p.y,l2=dx*dx+dy*dy||1;let t=Math.max(0,Math.min(1,((wx-p.x)*dx+(wy-p.y)*dy)/l2));const d=Math.hypot(wx-(p.x+t*dx),wy-(p.y+t*dy));if(d<bd){bd=d;be=e}});return be?{e:be}:null}
+let drag=null;const tip=$('#tip');
+cv.onpointerdown=e=>{drag={x:e.clientX,y:e.clientY,tx,ty,m:0};cv.setPointerCapture(e.pointerId)};
+cv.onpointermove=e=>{if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.m=Math.max(drag.m,Math.abs(dx)+Math.abs(dy));if(drag.m>4){tx=drag.tx+dx;ty=drag.ty+dy}return}
+const h=pick(e.clientX,e.clientY);hov=h&&h.n?h.n.id:null;hovE=h&&h.e||null;cv.style.cursor=h?'pointer':'grab';
+if(h){tip.style.display='block';tip.style.left=Math.min(e.clientX+14,W-250)+'px';tip.style.top=e.clientY+14+'px';tip.innerHTML=h.n?`<b>${h.n.label}</b><br>${T[h.n.t]}${h.n.u!=='x'?' · '+U[h.n.u][0]:''}`:`<b>${ET[h.e.t][1]} ${ET[h.e.t][0]}</b><br>${B[h.e.a].label} → ${B[h.e.b].label}<br><small>Click for details</small>`}else tip.style.display='none'};
+cv.onpointerup=e=>{if(drag&&drag.m<5){const h=pick(e.clientX,e.clientY);if(h&&h.n)select(h.n.id);else if(h&&h.e)selEdge(h.e)}drag=null};
+cv.onwheel=e=>{e.preventDefault();const f=Math.exp(-e.deltaY*.0015),nk=Math.max(.15,Math.min(5,k*f)),r=nk/k;tx=e.clientX-(e.clientX-tx)*r;ty=e.clientY-(e.clientY-ty)*r;k=nk};
+// panel
+const P=$('#P'),pv=e=>{const[l,c]=PV[e.pv];return`<span class="pill" style="color:${c};border-color:${c}">${l}</span>`};
+const ok=e=>e.sp<=L||rev.has(e.i);
+function close(){P.classList.remove('o')}
+function select(id,noGo){const n=B[id];sel=id;selE=null;const g=adj[id];
+const grp={};g.forEach(e=>(grp[e.t]=grp[e.t]||[]).push(e));
+const u=U[n.u];let h=`<button class="x" onclick="resetMap()">✕</button><span class="pill" style="color:${col(n)};border-color:${col(n)}">${T[n.t]}</span>${n.u!=='x'?`<span class="pill" style="color:${u[1]};border-color:${u[1]}">${u[0]}</span>`:''}${n.up?'<span class="pill" style="color:#fff;border-color:#fff">UPCOMING</span>':''}<h2>${n.label}</h2><p style="color:#889">${n.yr?(n.up?'Announced for ':'Released ')+n.yr:''}</p><p>${n.d||'Part of the web; follow the connections below.'}</p>`;
+if(n.up)h+='<p style="color:#fc6">Officially announced only. Rumors are labelled separately.</p>';
+if(n.t==='p'){const pre=g.filter(e=>e.t==='cont'&&e.b===id),nx=g.filter(e=>e.t==='cont'&&e.a===id);
+if(pre.length)h+=`<h3>Watch before / pays off</h3>`+pre.map(e=>`<div class="it"><a data-n="${e.a}">${B[e.a].label}</a>${ok(e)?`<span>${e.ti}</span>`:'<span>🔒 spoiler</span>'}</div>`).join('');
+if(nx.length)h+=`<h3>Sets up</h3>`+nx.map(e=>`<div class="it"><a data-n="${e.b}">${B[e.b].label}</a>${ok(e)?`<span>${e.ti}</span>`:'<span>🔒 spoiler</span>'}</div>`).join('')}
+Object.keys(grp).forEach(t=>{h+=`<h3>${ET[t][1]} ${ET[t][0]} (${grp[t].length})</h3>`+grp[t].map(e=>{const o=e.a===id?e.b:e.a;return`<div class="it"><a data-n="${o}">${B[o].label}</a><span>${ok(e)?e.ti:'🔒 spoiler L'+e.sp}</span><i data-e="${e.i}" title="Open connection">ⓘ</i></div>`}).join('')});
+P.innerHTML=h;P.classList.add('o');P.scrollTop=0;if(!noGo)go(n.x,n.y,Math.max(k,1.5))}
+function selEdge(e,noGo){selE=e;sel=null;const a=B[e.a],b=B[e.b],t=ET[e.t],open=ok(e);
+P.innerHTML=`<button class="x" onclick="resetMap()">✕</button><span class="pill" style="color:${t[3]};border-color:${t[3]}">${t[1]} ${t[0]}</span>${pv(e)}<h2><a style="color:#9cf;cursor:pointer" data-n="${a.id}">${a.label}</a> → <a style="color:#9cf;cursor:pointer" data-n="${b.id}">${b.label}</a></h2>`+(open?`<h3>${e.ti}</h3><p>${e.tx}</p><p style="color:#889">Spoiler level ${e.sp}. ${e.pv==='c'?'Officially established.':e.pv==='t'?'Real-world production trivia, not in-universe canon.':e.pv==='f'?'Fan interpretation, not official.':e.pv==='r'?'Reported by media, not officially confirmed.':e.pv==='d'?'Genuinely disputed.':'Community observation.'}</p>`:`<div class="gate" data-r="${e.i}">⚠ Spoiler level ${e.sp}. Click to reveal this connection.</div>`);
+P.classList.add('o');if(!noGo)go((a.x+b.x)/2,(a.y+b.y)/2,Math.min(k<1.2?1.2:k,2))}
+P.onclick=ev=>{const t=ev.target;if(t.dataset.n)select(t.dataset.n);else if(t.dataset.e)selEdge(E[t.dataset.e],true);else if(t.dataset.r){rev.add(E[t.dataset.r]);rev.add(+t.dataset.r);selEdge(E[t.dataset.r],true)}};
+function resetMap(){sel=selE=null;close();fit();q.value='';res.style.display='none'}
+$('#reset').onclick=resetMap;$('#sp').onchange=e=>{L=+e.target.value;sel?select(sel,true):selE&&selEdge(selE,true)};
+// search
+const q=$('#q'),res=$('#res');let rs=[],ri=0;
+function score(n,s){const l=(n.label+' '+n.id).toLowerCase();if(l.startsWith(s))return 0;if(l.split(/[\s:\-&]+/).some(w=>w.startsWith(s)))return 1;if(l.includes(s))return 2;let i=0;for(const c of l){if(c===s[i])i++}return i===s.length?3:9}
+q.oninput=()=>{const s=q.value.trim().toLowerCase();if(!s){res.style.display='none';return}rs=nodes.map(n=>[score(n,s)+(n.t==='p'?0:.1)-n.deg*.01,n]).filter(x=>x[0]<9).sort((a,b)=>a[0]-b[0]).slice(0,9).map(x=>x[1]);ri=0;res.innerHTML=rs.map((n,i)=>`<div data-i="${i}" class="${i?'':'on'}">${n.label}<small>${T[n.t]}${n.yr?' · '+n.yr:''}</small></div>`).join('')||'<div>No match. Try a shorter word.</div>';res.style.display='block'};
+res.onclick=e=>{const d=e.target.closest('[data-i]');if(d)pickR(+d.dataset.i)};
+function pickR(i){const n=rs[i];if(!n)return;res.style.display='none';q.value=n.label;hT.clear();hU.clear();buildF();select(n.id)}
+q.onkeydown=e=>{if(e.key==='Enter')pickR(ri);else if(e.key==='ArrowDown'||e.key==='ArrowUp'){ri=(ri+(e.key==='ArrowDown'?1:rs.length-1))%Math.max(1,rs.length);[...res.children].forEach((c,i)=>c.classList.toggle('on',i===ri));e.preventDefault()}else if(e.key==='Escape')res.style.display='none'};
+// filters
+function buildF(){const f=$('#flt');f.innerHTML=Object.keys(T).map(t=>`<button data-t="${t}" class="${hT.has(t)?'off':''}" style="border-color:${TC[t]||'#e23636'}">${T[t]}</button>`).join('')+ukeys.map(u=>`<button data-u="${u}" class="${hU.has(u)?'off':''}" style="border-color:${U[u][1]}">${U[u][0]}</button>`).join('')}
+$('#flt').onclick=e=>{const b=e.target.closest('button');if(!b)return;const s=b.dataset.t?hT:hU,k2=b.dataset.t||b.dataset.u;s.has(k2)?s.delete(k2):s.add(k2);buildF()};
+addEventListener('resize',()=>{size()});size();buildF();fit();loop();
+</script></body></html>
