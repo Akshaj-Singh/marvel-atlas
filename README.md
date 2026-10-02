@@ -118,3 +118,11 @@ The first command requires Node.js for **testing only**; visitors don't need it.
 - This is a finite, documented corpus, **not an exhaustive catalogue of every animated short, Easter egg, character variant, source interview or future film**. Treat “complete” as a coherent, working and validated edition of this dataset, not an impossible guarantee of all Marvel information ever published.
 
 All project descriptions and dialogue snippets are short, paraphrased observations, not reproductions of complete copyrighted scripts.
+
+
+
+TODO
+wikiracer kinda seprate option 
+ C&D has no connection with Luke Cage. O'Reilly and Misty reference each other and Cloak reads a newsp...
+
+ 
