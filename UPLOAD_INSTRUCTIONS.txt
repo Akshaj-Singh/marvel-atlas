@@ -1,0 +1,1 @@
+Replace index.html, style.css and app.js in the ROOT of your existing marvel-atlas GitHub repository. Commit changes. Leave all other files as they are. GitHub Pages will redeploy. Search Iron Man, click Find path from here, and search VisionQuest to try the repaired route.
